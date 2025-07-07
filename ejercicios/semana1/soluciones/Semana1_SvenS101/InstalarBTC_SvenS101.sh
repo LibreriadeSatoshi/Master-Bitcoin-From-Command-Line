@@ -227,5 +227,5 @@ sudo -u "$NEW_USER" /usr/local/bin/bitcoin-cli -conf="$BTC_CONF" -datadir="$DATA
 echo "Cambiando al usuario regtest para iniciar el siguiente script"
 confirm "¿Cambiamos de usuario?"
 
-chmod -R o+rX /Semana1
-sudo su - regtest -c "bash /Semana1/Ejercicio1.sh"
+chmod -R o+rX /Semana1_SvenS101
+sudo su - regtest -c "bash /Semana1_SvenS101/Ejercicio1_SvenS101.sh"
