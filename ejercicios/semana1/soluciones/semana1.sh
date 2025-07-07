@@ -1,144 +1,122 @@
 #!/usr/bin/env bash
-#
-# -------------------------------------------------------------------
-# Ejercicio Semana 1: Mastering Bitcoin From the Command Line
-# Solución Completa y Automatizada
-#
-# Este script realiza todo el proceso:
-# 1. Descarga y verifica criptográficamente los binarios de Bitcoin Core.
-# 2. Instala los binarios en el sistema.
-# 3. Configura e inicia un nodo en modo regtest.
-# 4. Crea y financia wallets para simular una transacción.
-# 5. Ejecuta una transacción y reporta los detalles.
-# -------------------------------------------------------------------
-
 set -euo pipefail
+# ---------------------------------------------------------------------------
+# semana1-pro.sh - Bitcoin Core Week 1 Automation Script
+#
+# Este script automatiza los pasos del ejercicio de la Semana 1
+#   * Descarga e instalación de Bitcoin Core
+#   * Verificación SHA‑256 y firma GPG
+#   * Configuración básica de regtest
+#   * Arranque de bitcoind y creación de wallets
+#   * Minado hasta balance positivo
+#   * Envío de 20 BTC de Miner a Trader y detalles de la transacción
+#
+# Requisitos:
+#   - wget, gpg, sha256sum, jq
+#   - Permisos de escritura en /usr/local/bin (usa sudo si está disponible)
+#
+# Variables de entorno opcionales:
+#   BITCOIN_VERSION    Versión de Bitcoin Core a instalar (default: 29.0)
+#   DATADIR            Directorio de datos (default: ~/.bitcoin)
+# ---------------------------------------------------------------------------
 
-# --- SECCIÓN 1: CONFIGURACIÓN Y VERIFICACIÓN ---
-echo "➡️ SECCIÓN 1: Configuración del nodo Bitcoin Core..."
+BITCOIN_VERSION=${BITCOIN_VERSION:-29.0}
+DATADIR=${DATADIR:-$HOME/.bitcoin}
 
-# Variables para la versión de Bitcoin Core. Cambia la versión si es necesario.
-BITCOIN_VERSION="29.0"
-BITCOIN_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}"
-TAR_FILE="bitcoin-${BITCOIN_VERSION}-x86_64-linux-gnu.tar.gz"
-SIGNER_KEY="01EA5486DE18A882D4C2684590C8019E36C2E964" # Clave GPG de Wladimir J. van der Laan
+DEPENDENCIES=(wget gpg sha256sum jq)
+for dep in "${DEPENDENCIES[@]}"; do
+  command -v "$dep" >/dev/null 2>&1 || { echo "Falta dependencia: $dep"; exit 1; }
+done
 
-# 1. Descargar los binarios, hashes y firmas
-echo "⬇️  Descargando Bitcoin Core v${BITCOIN_VERSION} (si es necesario)..."
-if [ ! -f "$TAR_FILE" ]; then
-    wget -q "${BITCOIN_URL}/${TAR_FILE}"
-    wget -q "${BITCOIN_URL}/SHA256SUMS"
-    wget -q "${BITCOIN_URL}/SHA256SUMS.asc"
-    echo "✅ Descarga completa."
-else
-    echo "✅ Archivos de Bitcoin Core ya existen. Saltando descarga."
-fi
+# Selección de arquitectura
+case "$(uname -m)" in
+  x86_64|amd64)  PLATFORM="x86_64-linux-gnu" ;;
+  aarch64|arm64) PLATFORM="aarch64-linux-gnu" ;;
+  *) echo "Arquitectura no soportada"; exit 1 ;;
+esac
 
-# 2. Verificar la integridad de los archivos descargados
-echo "🔎 Verificando la integridad criptográfica de los archivos..."
-# Paso 2a: Verificar el hash del archivo
-sha256sum --ignore-missing --check SHA256SUMS | grep "OK" || { echo "❌ Error: La verificación del hash SHA256 falló."; exit 1; }
-echo "👍 Hash verificado correctamente."
+TAR="bitcoin-${BITCOIN_VERSION}-${PLATFORM}.tar.gz"
+BASE_URL="https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_VERSION}"
+SHA_FILE="SHA256SUMS"
+SIG_FILE="${SHA_FILE}.asc"
+TMPDIR=$(mktemp -d)
 
-# Paso 2b: Verificar la firma GPG del desarrollador
-gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "$SIGNER_KEY" >/dev/null 2>&1
-gpg --verify SHA256SUMS.asc SHA256SUMS 2>&1 | grep "Good signature" || { echo "❌ Error: La firma GPG es inválida. El binario no es confiable."; exit 1; }
-echo "👍 Verificación exitosa de la firma binaria."
+echo "📥 Descargando Bitcoin Core $BITCOIN_VERSION…"
+wget -q -P "$TMPDIR" "$BASE_URL/$TAR" "$BASE_URL/$SHA_FILE" "$BASE_URL/$SIG_FILE"
 
-# 3. Instalar los binarios en una ubicación estándar
-echo "⚙️  Instalando binarios en /usr/local/bin/..."
-tar -xzf "$TAR_FILE"
-sudo install -m 0755 -o root -g root -t /usr/local/bin "bitcoin-${BITCOIN_VERSION}/bin/*"
-echo "✅ Binarios instalados con éxito."
+echo "🔑 Importando claves de confianza…"
+wget -q -O "$TMPDIR/trusted-keys" \
+  https://raw.githubusercontent.com/bitcoin/bitcoin/master/contrib/verify-commits/trusted-keys
+gpg --import "$TMPDIR/trusted-keys" >/dev/null
 
-# --- SECCIÓN 2: INICIO DEL NODO ---
-echo -e "\n➡️ SECCIÓN 2: Inicio del nodo en modo regtest..."
+echo "🖋️ Verificando firma de SHA256SUMS…"
+gpg --verify "$TMPDIR/$SIG_FILE" "$TMPDIR/$SHA_FILE"
+echo "Binary signature verification successful"
 
-# 1. Crear el directorio de datos y el archivo de configuración
-BITCOIN_DIR="$HOME/.bitcoin"
-mkdir -p "$BITCOIN_DIR"
-cat > "$BITCOIN_DIR/bitcoin.conf" <<EOF
-# Configuración para el modo regtest
+echo "🔒 Verificando hash del tarball…"
+grep "$TAR" "$TMPDIR/$SHA_FILE" | sha256sum --check -
+
+echo "📂 Extrayendo e instalando binarios…"
+tar -xf "$TMPDIR/$TAR" -C "$TMPDIR"
+if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=""; fi
+$SUDO install -m 0755 "$TMPDIR/bitcoin-${BITCOIN_VERSION}/bin/"* /usr/local/bin/
+
+echo "⚙️ Configurando directorio de datos en $DATADIR"
+mkdir -p "$DATADIR"
+CONF="$DATADIR/bitcoin.conf"
+if [[ ! -f "$CONF" ]]; then
+  cat > "$CONF" <<EOF
 regtest=1
-fallbackfee=0.0001
 server=1
 txindex=1
+fallbackfee=0.0002
 EOF
-
-# 2. Iniciar bitcoind como demonio (si no está corriendo)
-if ! bitcoin-cli -regtest ping > /dev/null 2>&1; then
-    bitcoind -daemon
-    echo "🚀 Nodo iniciado. Esperando 5 segundos para que esté listo..."
-    sleep 5
-else
-    echo "✅ El nodo bitcoind ya está en ejecución."
 fi
-bitcoin-cli -regtest getblockchaininfo > /dev/null # Un chequeo final para asegurar que el RPC está listo
 
-# --- SECCIÓN 3: OPERACIONES CON WALLETS Y FONDOS ---
-echo -e "\n➡️ SECCIÓN 3: Creando y financiando wallets..."
+echo "🚀 Arrancando bitcoind (regtest)…"
+if ! bitcoin-cli -datadir="$DATADIR" -regtest getblockchaininfo >/dev/null 2>&1; then
+  bitcoind -datadir="$DATADIR" -daemon
+  echo -n "⏳ Esperando RPC"
+  until bitcoin-cli -datadir="$DATADIR" -regtest getblockchaininfo >/dev/null 2>&1; do
+    echo -n "."; sleep 1
+  done
+  echo " listo!"
+fi
 
-echo "👜 Creando wallets 'Miner' y 'Trader' (ignora error si ya existen)..."
-bitcoin-cli -regtest createwallet "Miner" "" false false "" false true >/dev/null 2>&1 || true
-bitcoin-cli -regtest createwallet "Trader" "" false false "" false true >/dev/null 2>&1 || true
+# Creación de wallets
+for WALLET in Miner Trader; do
+  bitcoin-cli -datadir="$DATADIR" -regtest createwallet "$WALLET" 2>/dev/null || true
+done
 
-# 4. Generar dirección y minar bloques para obtener recompensa
-MINER_ADDR=$(bitcoin-cli -regtest -rpcwallet=Miner getnewaddress "Recompensa de Mineria")
-echo "⛏️  Minando 101 bloques para madurar la recompensa inicial..."
-bitcoin-cli -regtest generatetoaddress 101 "$MINER_ADDR" > /dev/null
+# Dirección del minero
+MINER_ADDR=$(bitcoin-cli -datadir="$DATADIR" -regtest -rpcwallet=Miner getnewaddress "Miner coinbase" bech32)
 
-# 5. Comentario sobre la madurez de la recompensa
-echo -e "\n# Explicación: Se minan 101 bloques porque una recompensa de bloque (coinbase)"
-echo "# necesita 100 confirmaciones adicionales para 'madurar' y poder ser gastada."
-echo "# Bloque 1: genera la recompensa. Bloques 2-101: la confirman."
+echo "⛏️ Minando hasta balance positivo…"
+BLOCKS=0
+while [[ "$(bitcoin-cli -datadir="$DATADIR" -regtest -rpcwallet=Miner getbalance)" == "0.00000000" ]]; do
+  bitcoin-cli -datadir="$DATADIR" -regtest generatetoaddress 1 "$MINER_ADDR" >/dev/null
+  ((BLOCKS++))
+done
+echo "🔢 Bloques minados: $BLOCKS"
 
-# 6. Imprimir saldo inicial del minero
-MINER_INITIAL_BALANCE=$(bitcoin-cli -regtest -rpcwallet=Miner getbalance)
-echo "💰 Saldo inicial de Miner: $MINER_INITIAL_BALANCE BTC"
+# Envío de 20 BTC
+TRADER_ADDR=$(bitcoin-cli -datadir="$DATADIR" -regtest -rpcwallet=Trader getnewaddress "Trader receive" bech32)
+TXID=$(bitcoin-cli -datadir="$DATADIR" -regtest -rpcwallet=Miner sendtoaddress "$TRADER_ADDR" 20 "" "pago a Trader")
+echo "💸 TX enviada: $TXID"
 
-# --- SECCIÓN 4: DEMOSTRACIÓN DE TRANSACCIÓN ---
-echo -e "\n➡️ SECCIÓN 4: Realizando una transacción de Miner a Trader..."
+echo "📋 Entrada en mempool:"
+bitcoin-cli -datadir="$DATADIR" -regtest getmempoolentry "$TXID"
 
-# 1. Crear dirección en la wallet Trader
-TRADER_ADDR=$(bitcoin-cli -regtest -rpcwallet=Trader getnewaddress "Recibido")
-echo "💸 Enviando 20 BTC desde Miner a la dirección de Trader: $TRADER_ADDR"
-TXID=$(bitcoin-cli -regtest -rpcwallet=Miner sendtoaddress "$TRADER_ADDR" 20)
-echo "✔️ Transacción enviada. TXID: $TXID"
+# Confirmación
+bitcoin-cli -datadir="$DATADIR" -regtest generatetoaddress 1 "$MINER_ADDR" >/dev/null
+echo "✅ TX confirmada en el bloque actual"
 
-# 2. Mostrar la transacción en el mempool
-echo "🕒 Transacción en el mempool:"
-bitcoin-cli -regtest getmempoolentry "$TXID"
+# Detalles y métricas
+TX_DETAIL=$(bitcoin-cli -datadir="$DATADIR" -regtest gettransaction "$TXID" true)
+FEE=$(echo "$TX_DETAIL" | jq '.fee | abs')
+CHANGE=$(echo "$TX_DETAIL" | jq '[.details[] | select(.category=="send" and .internal==true) | .amount] | add | abs')
+echo -e "Resumen de la transacción:\n  Tarifa: ${FEE} BTC\n  Cambio: ${CHANGE} BTC"
 
-# 3. Confirmar la transacción minando 1 bloque más
-echo "🔒 Confirmando la transacción con 1 bloque adicional..."
-bitcoin-cli -regtest generatetoaddress 1 "$MINER_ADDR" >/dev/null
-
-# --- SECCIÓN 5: REPORTE FINAL ---
-echo -e "\n➡️ SECCIÓN 5: Detalles finales de la transacción confirmada..."
-
-# 4. Obtener todos los detalles de la transacción usando jq
-TX_DATA_VERBOSE=$(bitcoin-cli -regtest -rpcwallet=Miner gettransaction "$TXID" true)
-RAW_TX=$(bitcoin-cli -regtest getrawtransaction "$TXID" true)
-
-# Extraer detalles específicos
-INPUT_AMOUNT=$(echo "$TX_DATA_VERBOSE" | jq -r '.amount | . * -1')
-SENT_AMOUNT=$(echo "$TX_DATA_VERBOSE" | jq -r '.details[] | select(.category=="send") | .amount | . * -1')
-CHANGE_AMOUNT=$(echo "$TX_DATA_VERBOSE" | jq -r '.details[] | select(.category=="receive" and .address != "'$MINER_ADDR'") | .amount') # Asumiendo que la dirección de cambio es nueva
-FEES=$(echo "$TX_DATA_VERBOSE" | jq -r '.fee | . * -1')
-BLOCK_HEIGHT=$(echo "$TX_DATA_VERBOSE" | jq -r '.blockheight')
-INPUT_ADDRESS=$(bitcoin-cli -regtest getrawtransaction $(echo $RAW_TX | jq -r .vin[0].txid) true | jq -r ".vout[$(echo $RAW_TX | jq -r .vin[0].vout)].scriptPubKey.address")
-
-
-# 5. Imprimir los detalles en el formato solicitado
-echo "----------------------------------------------------"
-echo "txid:           $TXID"
-echo "<De, Cantidad>:   $INPUT_ADDRESS, $INPUT_AMOUNT BTC"
-echo "<Enviar, Cantidad>: $TRADER_ADDR, $SENT_AMOUNT BTC"
-echo "<Cambio, Cantidad>: (Nueva dirección de Miner), $CHANGE_AMOUNT BTC"
-echo "Comisiones:     $FEES BTC"
-echo "Bloque:         $BLOCK_HEIGHT"
-echo "----------------------------------------------------"
-echo "Saldo de Miner:   $(bitcoin-cli -regtest -rpcwallet=Miner getbalance) BTC"
-echo "Saldo de Trader:  $(bitcoin-cli -regtest -rpcwallet=Trader getbalance) BTC"
-
-echo -e "\n🎉 ¡Script completado con éxito!"
+# Parada limpia (útil en CI)
+bitcoin-cli -datadir="$DATADIR" -regtest stop >/dev/null
+echo "🧹 bitcoind detenido. Script completado con éxito."
