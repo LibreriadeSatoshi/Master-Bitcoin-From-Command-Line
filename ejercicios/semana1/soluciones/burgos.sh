@@ -132,3 +132,4 @@ echo "Comisiones: $fee BTC"
 echo "Bloque: $blockheight"
 echo "Saldo de Miner: $balance_miner BTC"
 echo "Saldo de Trader: $balance_trader BTC"
+
