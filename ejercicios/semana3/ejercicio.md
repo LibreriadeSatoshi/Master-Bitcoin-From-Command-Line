@@ -12,7 +12,7 @@ En este ejercicio, nuestro objetivo es simular una transferencia básica de acci
 #### Configurar Multisig
 1. Crear tres monederos: `Miner`, `Alice` y `Bob`.
 2. Fondear los monederos generando algunos bloques para `Miner` y enviando algunas monedas a `Alice` y `Bob`.
-3. Crear un wallet Multisig 2-de-2 combinando los descriptors de `Alice` y `Bob`. Uilizar el miniscript "multi" wsh(multi(2,descAlice,descBob) para crear un "output descriptor". Importar el descriptor al Wallet Multisig. Generar una direccion.
+3. Crear un wallet Multisig 2-de-2 combinando los descriptors de `Alice` y `Bob`. Uilizar la funcion "multi" wsh(multi(2,descAlice,descBob) para crear un "output descriptor". Importar el descriptor al Wallet Multisig. Generar una direccion.
 4. Crear una Transacción Bitcoin Parcialmente Firmada (PSBT) para financiar la dirección multisig con 20 BTC, tomando 10 BTC de Alice y 10 BTC de Bob, y proporcionando el cambio correcto a cada uno de ellos.
 5. Confirmar el saldo mediante la minería de algunos bloques adicionales.
 6. Imprimir los saldos finales de `Alice` y `Bob`.
