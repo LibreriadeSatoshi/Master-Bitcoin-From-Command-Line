@@ -47,12 +47,11 @@ bitcoin-cli -rpcwallet="Multisig" getwalletinfo
 MULTI_ADDR=$(bitcoin-cli -rpcwallet="Multisig" getnewaddress)
 echo "Multisig address: $MULTI_ADDR"
 echo "Multisig balance: $(bitcoin-cli -rpcwallet="Multisig" getbalances | jq -r '.mine.trusted')"
-bitcoin-cli -rpcwallet="Multisig" getbalances
 
 
 # Create a Partially Signed Bitcoin Transaction (PSBT) to fund the multisig address with 20 BTC, taking 10 BTC each from Alice and Bob, and providing correct change back to each of them.
-ALICE_CHANGE_ADDR=$(bitcoin-cli -rpcwallet=Alice getnewaddress "Change")
-BOB_CHANGE_ADDR=$(bitcoin-cli -rpcwallet=Bob getnewaddress "Change")
+ALICE_CHANGE_ADDR=$(bitcoin-cli -rpcwallet=Alice getrawchangeaddress)
+BOB_CHANGE_ADDR=$(bitcoin-cli -rpcwallet=Bob getrawchangeaddress)
 
 ALICE_UTXO_TXID=$(bitcoin-cli -rpcwallet=Alice listunspent | jq -r '.[0].txid')
 ALICE_UTXO_VOUT=$(bitcoin-cli -rpcwallet=Alice listunspent | jq -r '.[0].vout')
@@ -67,15 +66,12 @@ PSBT=$(bitcoin-cli -named createpsbt \
   outputs="[{\"$MULTI_ADDR\":20}, {\"$ALICE_CHANGE_ADDR\":39.9999}, {\"$BOB_CHANGE_ADDR\":39.9999}]")
 
 PSBT_ALICE=$(bitcoin-cli -rpcwallet=Alice walletprocesspsbt $PSBT | jq -r '.psbt')
-bitcoin-cli -named analyzepsbt psbt=$PSBT_ALICE
 
 PSBT_BOB=$(bitcoin-cli -rpcwallet=Bob walletprocesspsbt $PSBT | jq -r '.psbt')
-bitcoin-cli -named analyzepsbt psbt=$PSBT_BOB
 
 
 # da igual si se firman por separado y se combian o si Alice firma uno y luego Bob firma el resultado de Alice.
 PSBT_ALICE_AND_BOB=$(bitcoin-cli -rpcwallet=Bob walletprocesspsbt $PSBT_ALICE | jq -r '.psbt')
-bitcoin-cli -named analyzepsbt psbt=$PSBT_ALICE_AND_BOB
 
 PSBT_COMBINED=$(bitcoin-cli combinepsbt "[\"$PSBT_ALICE\", \"$PSBT_BOB\"]")
 
@@ -91,13 +87,11 @@ PSBT_HEX=$(bitcoin-cli finalizepsbt $PSBT_COMBINED | jq -r ".hex")
 TXID=$(bitcoin-cli -named sendrawtransaction hexstring=$PSBT_HEX)
 
 bitcoin-cli generatetoaddress 1 "$MINER_ADDR"
-echo "Multisig balance: $(bitcoin-cli -rpcwallet="Multisig" getbalances | jq -r '.mine.trusted')"
-
-
-# Crear un watch-only wallet para la multisig e importar el descriptor
-bitcoin-cli -named createwallet wallet_name="watchonly-multisig" disable_private_keys=true blank=true
-MULTI_DESC=$(echo $MULTI | jq -r '.descriptor')
-bitcoin-cli -rpcwallet=watchonly-multisig importdescriptors "[{ \"desc\": \"$MULTI_DESC\", \"timestamp\": \"now\", \"active\": false }]"
+echo "Before spending"
+echo "--------------------------------"
+echo "Multi balance: $(bitcoin-cli -rpcwallet="Multisig" getbalances | jq -r '.mine.trusted')"
+echo "Alice balance: $(bitcoin-cli -rpcwallet="Alice" getbalances | jq -r '.mine.trusted')"
+echo "Bob's balance: $(bitcoin-cli -rpcwallet="Bob" getbalances | jq -r '.mine.trusted')"
 
 
 # Crear una PSBT para gastar fondos del wallet Multisig, enviando 3 BTC a Alice. Genera una direccion de cambio desde el wallet Multisig
@@ -115,23 +109,17 @@ SPEND_PSBT=$(bitcoin-cli -rpcwallet=Multisig -named walletcreatefundedpsbt \
   outputs='{"'"$MULTI_CHANGE_ADDR"'":16.9999, "'"$ALICE_NEW_ADDR"'":3}' \
   options='{"includeWatching":true}' | jq -r '.psbt')
 
-bitcoin-cli decodepsbt $SPEND_PSBT
-
 
 # Alice signs the PSBT
 SPEND_PSBT_ALICE=$(bitcoin-cli -rpcwallet=Alice walletprocesspsbt $SPEND_PSBT | jq -r '.psbt')
-bitcoin-cli -named analyzepsbt psbt=$SPEND_PSBT_ALICE
 
 
 # Bob signs the PSBT
 SPEND_PSBT_BOB=$(bitcoin-cli -rpcwallet=Bob walletprocesspsbt $SPEND_PSBT | jq -r '.psbt')
-bitcoin-cli -named analyzepsbt psbt=$SPEND_PSBT_BOB
 
 
 # Combine PSBTs
 SPEND_PSBT_COMBINED=$(bitcoin-cli combinepsbt "[\"$SPEND_PSBT_ALICE\", \"$SPEND_PSBT_BOB\"]")
-echo $SPEND_PSBT_COMBINED
-bitcoin-cli -named analyzepsbt psbt=$SPEND_PSBT_COMBINED
 
 
 # Finalize PSBT and send it
@@ -144,6 +132,8 @@ bitcoin-cli generatetoaddress 1 "$MINER_ADDR"
 
 
 # Print balances on screen
+echo "After spending"
+echo "--------------------------------"
 echo "Multi balance: $(bitcoin-cli -rpcwallet=Multisig getbalances | jq -r '.mine.trusted')"
 echo "Alice balance: $(bitcoin-cli -rpcwallet=Alice getbalances | jq -r '.mine.trusted')"
 echo "Bob's balance: $(bitcoin-cli -rpcwallet=Bob getbalances | jq -r '.mine.trusted')"
