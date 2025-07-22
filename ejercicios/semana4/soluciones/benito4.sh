@@ -146,7 +146,15 @@ cambio=$(bitcoin-cli "-rpcwallet=$name_wallet" getnewaddress "$label")
 echo "Indique el cambio de vuelta:"
   read cambio_vuelta
   
-op_return_data="837f5d1177fa44e8d67535d05a167ba3fce6c8f8c5c765e32c783a005f4684e8"
+echo "#### Ingresa esta información para ingresar como OP_RETURN: #####"
+echo "#### He recibido mi salario, ahora soy rico #####"
+  read data
+  
+echo $data > data.txt
+hash=$(sha256sum data.txt)
+echo $hash > data.txt
+op_return_data=$(cut -d " " -f 1 data.txt)
+
 if (( cant_utxos <= 1 ));
   then
     rawtx=$(bitcoin-cli -named createrawtransaction inputs='''[ { "txid":'${ids_utxos[0]}', "vout":'${vouts[0]}',
