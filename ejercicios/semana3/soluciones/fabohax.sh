@@ -2,7 +2,7 @@
 set -euo pipefail
 
 WALLETS=("Miner" "Alice" "Bob" "Multisig")
-BITCOIN_CLI="bitcoin-cli -regtest -rpcuser=bitcoinrpc -rpcpassword=bitcoinrpctest"
+BITCOIN_CLI="bitcoin-cli -regtest -rpcuser=fabohax -rpcpassword=40230"
 DATA_DIR="$HOME/.bitcoin"
 CONF_FILE="$DATA_DIR/bitcoin.conf"
 MINER_ADDR=""
@@ -262,4 +262,3 @@ echo "> 🪙 Prueba completada con éxito"
 echo "- Alice: $($BITCOIN_CLI -rpcwallet=Alice getbalance) BTC"
 echo "- Bob: $($BITCOIN_CLI -rpcwallet=Bob getbalance) BTC"
 echo "- Multisig: $($BITCOIN_CLI -rpcwallet=MultisigWatch listunspent | jq -r 'map(.amount) | add // 0')"
-
