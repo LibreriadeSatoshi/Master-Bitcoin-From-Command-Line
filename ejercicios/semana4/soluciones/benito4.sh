@@ -150,10 +150,7 @@ echo "#### Ingresa esta información para ingresar como OP_RETURN: #####"
 echo "#### He recibido mi salario, ahora soy rico #####"
   read data
   
-echo $data > data.txt
-hash=$(sha256sum data.txt)
-echo $hash > data.txt
-op_return_data=$(cut -d " " -f 1 data.txt)
+op_return_data=$(echo $data > data.txt | sha256sum data.txt | cut -d " " -f 1)
 
 if (( cant_utxos <= 1 ));
   then
@@ -198,6 +195,8 @@ createaddress
 
 echo ""
 echo "#### Emula el proceso de minado para fondear la wallet MINER ####"
+echo ""
+echo "########## MINA 100 BITCOINS ##########"
 echo ""
 
 generarbloques
