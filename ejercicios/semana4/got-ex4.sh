@@ -123,9 +123,6 @@ echo "Balance - Empleado wallet: $balance_empleado"
 
 ##### SEGUNDA PARTE: Enviar 40 BTC del empleador al empleado
 
-
-
-
 balance=$(bitcoin-cli -rpcwallet=$EMPLEADORWALLET getbalance)
 echo "Balance - Empleador wallet: $balance"
 
@@ -177,15 +174,7 @@ done
 json_inputs=$(printf ',%s' "${inputs[@]}")
 json_inputs="[${json_inputs:1}]"  # Eliminar la primera coma y agregar corchetes
 
-
 echo "inputs final: $json_inputs"
-
-
-
-
-
-
-
 
 # Crear direcciones receptoras con la etiqueta "Recibido" desde las billetreas.
 empleado_Address=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET getnewaddress "Recibido empleador")
@@ -199,13 +188,7 @@ cambio=$(echo "$total - $fee - $cantidad_a_enviar" | bc)
 
 # Mostrar el resultado
 echo "El cambio que debes dar es: $cambio"
-
-
-
-
 echo "Creando la transacción"
-
-
 
 raw_tx=$(bitcoin-cli -named -rpcwallet="$EMPLEADORWALLET" createrawtransaction \
      "$json_inputs" \
@@ -245,14 +228,97 @@ echo "TxID de la transacción enviada: $txidEnviada"
 #Minando un bloque para confirmar transacciones.
 bitcoin-cli generatetoaddress 1 "$minerAddress"
 
+#Balance para Miner
+balance_miner=$(bitcoin-cli -rpcwallet=$MINERWALLET getbalance)
+
+balance_empleador=$(bitcoin-cli -rpcwallet=$EMPLEADORWALLET getbalance)
+balance_empleado=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET getbalance)
+
+echo "Balance - Miner wallet: $balance_miner"
+echo "Balance - Empleador wallet: $balance_empleador"
+echo "Balance - Empleado wallet: $balance_empleado"
 
 
 
+#Tercera parte: gastar y crear dato en op return.
 
 
 
+balance=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET getbalance)
+echo "Balance - Empleado wallet: $balance"
+
+# Obtener todos los UTXOs de la billetera
+utxos=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET listunspent)
+
+echo $utxos
+cantidad_utxos=$(echo "$utxos" | jq '. | length')
+echo $cantidad_utxos
 
 
+
+# Inicializar variables
+total=0
+inputs=()
+cantidad_a_enviar=39.99999
+
+
+# Convertir el JSON a un array de líneas
+txids=($(echo "$utxos" | jq -r '.[].txid'))
+amounts=($(echo "$utxos" | jq -r '.[].amount'))
+vouts=($(echo "$utxos" | jq -r '.[].vout'))
+
+# Recorrer el array y asignar valores dentro del bucle
+for i in "${!txids[@]}"; do
+    txid="${txids[$i]}"
+    amount="${amounts[$i]}"
+    vout="${vouts[$i]}"
+    
+    echo "txid: $txid, amount: $amount, vout: $vout"
+
+    # Agregar UTXO al JSON de inputs
+    inputs+=("{\"txid\": \"$txid\", \"vout\": $vout, \"sequence\": 0}")
+    
+    
+    echo "inputs: ${inputs[@]}"  # Mostrar el contenido del array
+    # Sumar el total
+    total=$(echo "$total + $amount" | bc)
+    echo "Total: $total"
+    
+    # Verificar si hemos alcanzado la cantidad a enviar
+    if (( $(echo "$total >= $cantidad_a_enviar" | bc -l) )); then
+        break
+    fi
+
+done
+
+# Convertir el array de inputs a un JSON válido
+json_inputs=$(printf ',%s' "${inputs[@]}")
+json_inputs="[${json_inputs:1}]"  # Eliminar la primera coma y agregar corchetes
+
+echo "inputs final: $json_inputs"
+
+# Crear direcciones receptoras con la etiqueta "Recibido" desde las billetreas.
+empleado_Address=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET getnewaddress "Recibido empleado")
+
+
+echo "Creando la transacción"
+data_op=$(printf "%s" "He recibido mi salario, ahora soy rico" | hexdump -ve '1/1 "%.2x"')
+
+raw_tx=$(bitcoin-cli -rpcwallet="$EMPLEADOWALLET" createrawtransaction \
+    "$json_inputs" \
+    "{\"${empleado_Address}\": $cantidad_a_enviar, \"data\":\"$data_op\"}")     
+
+# Firmar la transacción
+bitcoin-cli -rpcwallet=$EMPLEADOWALLET walletpassphrase "Contraseña.2" 120
+signed_tx=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET signrawtransactionwithwallet "$raw_tx" | jq -r .hex)
+
+# Enviar la transacción firmada a la red
+txidEnviada=$(bitcoin-cli sendrawtransaction "$signed_tx")
+echo "TxID de la transacción enviada: $txidEnviada"
+
+
+#Minando un bloque para confirmar transacciones.
+bitcoin-cli generatetoaddress 1 "$minerAddress"
 
 #Balance para Miner
 balance_miner=$(bitcoin-cli -rpcwallet=$MINERWALLET getbalance)
@@ -263,3 +329,4 @@ balance_empleado=$(bitcoin-cli -rpcwallet=$EMPLEADOWALLET getbalance)
 echo "Balance - Miner wallet: $balance_miner"
 echo "Balance - Empleador wallet: $balance_empleador"
 echo "Balance - Empleado wallet: $balance_empleado"
+
