@@ -485,6 +485,7 @@ sleep 1
 
 ###################################################################################
 
+
 #Para reiniciar el nodo y volver a lanzar el script
 #Parar bitcoind: bitcoin-cli -regtest stop
 #Borrar la carpeta regtest: rm -rf /data/regtest/regtest/*
