@@ -72,7 +72,6 @@ op_return=$(echo "He recibido mi salario, ahora soy rico" | xxd -p | tr -d '\n')
 op_return_tx=$(bitcoin-cli createrawtransaction \
   "[{\"txid\":\"$txid01\",\"vout\":$vout01}]" \
   "{\"$empleador_change\":39.99999, \"data\":\"$op_return\"}")
-echo "OP_RETURN tx: "$op_return_tx
 
 #Firmar transaccion
 signedtx=$(bitcoin-cli -rpcwallet=Empleado signrawtransactionwithwallet "$op_return_tx")
