@@ -127,25 +127,6 @@ echo "> Firmando transacción..."
 SIGNED_TX=$($BITCOIN_CLI -rpcwallet=Empleador signrawtransactionwithwallet "$RAW_TX")
 COMPLETE_TX=$(echo "$SIGNED_TX" | jq -r .hex)
 
-# Intentar transmitir antes del timelock (debería fallar)
-echo "> Intentando transmitir transacción con timelock antes del bloque $TIMELOCK_BLOCK..."
-
-# Esto debería fallar debido al timelock
-set +e
-BROADCAST_RESULT=$($BITCOIN_CLI sendrawtransaction "$COMPLETE_TX" 2>&1)
-BROADCAST_SUCCESS=$?
-set -e
-
-if [ $BROADCAST_SUCCESS -ne 0 ]; then
-    echo "▓ Como se esperaba, la transacción fue rechazada:"
-    echo "   $BROADCAST_RESULT"
-    echo "   Comentario: Esto ocurre porque la transacción tiene un timelock absoluto de $TIMELOCK_BLOCK bloques"
-    echo "   y el bloque actual es $CURRENT_BLOCK. La red rechaza transacciones 'non-final'"
-    echo "   hasta que se alcance el tiempo especificado en el locktime."
-else
-    echo "▓ Inesperado: La transacción fue aceptada antes del timelock"
-fi
-
 # Minar hasta llegar al bloque timelock
 echo "> Minando hasta el bloque $TIMELOCK_BLOCK..."
 while [ $($BITCOIN_CLI getblockcount) -lt $TIMELOCK_BLOCK ]; do
