@@ -40,6 +40,9 @@ regtest=1
 fallbackfee=0.0001
 server=1
 txindex=1
+rpcuser=fabohax
+rpcpassword=40230
+rpcallowip=127.0.0.1
 EOF
 
 echo "> Verificando si hay procesos de bitcoind activos..."
