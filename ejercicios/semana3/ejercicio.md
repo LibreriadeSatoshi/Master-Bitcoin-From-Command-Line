@@ -18,7 +18,7 @@ En este ejercicio, nuestro objetivo es simular una transferencia básica de acci
 6. Imprimir los saldos finales de `Alice` y `Bob`.
 
 #### Liquidar Multisig
-1. Crear una PSBT para gastar fondos del wallet `Multisig`, enviando 3 BTC a `Alice`. Genera una direccion de cambio desde el wallet `Multisig`
+1. Crear una PSBT para gastar fondos del wallet `Multisig`, enviando 3 BTC a `Alice`.
 2. Firmar la PSBT por `Alice`.
 3. Firmar la PSBT por `Bob`.
 4. Extraer y transmitir la transacción completamente firmada.
