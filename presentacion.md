@@ -31,8 +31,8 @@ La planificación de las clases prácticas será la siguiente:
 * Semana1: Descarga, verificación e instalación de bitcoin-core. Arrancar el nodo en modo regtest, crear billeteras y hacer transacciones
 * Semana2: Trabajar con Json, sequence. Experimentar con los mecanismos Replace-By-Fee (RBF) y Child-Pays-for-Parent (CPFP)
 * Semana3: Transacciones PSBT. Transacciones multisig, como bloquear UTXO en una multifirma y como posteriormente gastar los fondos
-* Semana4: Creación de transacciones con Timelocks, OP_RETURN
-* Semana5: Timelock relativo
+* Semana4: Creación de transacciones con Timelocks, OP_RETURN, Timelock relativo
+* Semana5: Miniscript
 
 
 ## Funcionamiento

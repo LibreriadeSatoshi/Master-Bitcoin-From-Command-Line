@@ -2,7 +2,10 @@
 
 Los timelocks son mecanismos para crear transacciones que están bloqueadas hasta que haya pasado X unidades de tiempo. Estas transacciones no pueden incluirse en el bloque hasta que haya transcurrido el tiempo especificado. Esto puede ser útil para varios tipos de situaciones de flujo de transacciones en las que los fondos están bloqueados de manera segura.
 `OP_RETURN` es un código de operación que se puede utilizar para grabar datos aleatorios en una transacción. Esto tiene diversos usos, desde la marca de tiempo hasta los NFT (Tokens No Fungibles) basados en Bitcoin.
-En el siguiente ejercicio, pasaremos por un flujo de trabajo en el que un empleado recibe su salario de un empleador, pero solo después de que haya transcurrido cierto tiempo. El empleado también lo celebra y realiza un gasto de `OP_RETURN` para que todo el mundo sepa que ya no está desempleado.
+
+Los timelocks relativos se utilizan para crear bloqueos específicos para una entrada. Utilizando timelocks relativos, una transacción puede estar bloqueada hasta cierto número de bloques desde el bloque en el que se ha minado la entrada a la que se hace referencia.
+
+En el siguiente ejercicio, pasaremos por un flujo de trabajo en el que un empleado recibe su salario de un empleador, pero solo después de que haya transcurrido cierto tiempo. El empleado también lo celebra y realiza un gasto de `OP_RETURN` para que todo el mundo sepa que ya no está desempleado. A continuación haremos un timelock realtivo.
 
 ## Escribe un script de bash para:
 
@@ -21,6 +24,15 @@ En el siguiente ejercicio, pasaremos por un flujo de trabajo en el que un emplea
 2. Agrega una salida `OP_RETURN` en la transacción de gasto con los datos de cadena `"He recibido mi salario, ahora soy rico"`.
 3. Extrae y transmite la transacción completamente firmada.
 4. Imprime los saldos finales del `Empleado` y `Empleador`.
+
+#### Configurar un timelock relativo
+1. Crear una transacción en la que `Empleador` pague 1 BTC a `Miner`, pero con un timelock relativo de 10 bloques.
+2. Informar en la salida del terminal qué sucede cuando intentas difundir la transacción.
+
+#### Gastar desde el timelock relativo
+1. Generar 10 bloques adicionales.
+2. Difundir la segunda transacción. Confirmarla generando un bloque más.
+3. Informar el saldo de `Empleador`.
 
 ## Entrega
 - Crea un script de bash con tu solución para todo el ejercicio.
