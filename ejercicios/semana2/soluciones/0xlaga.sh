@@ -9,7 +9,7 @@ MINER_WALLET="Miner"
 TRADER_WALLET="Trader"
 
 
-# 1. Configuración de bitcoin.conf
+# 1. Configuración de bitcoin.conf - 
 mkdir -p ~/.bitcoin
 echo -e "regtest=1\nfallbackfee=0.0001\nserver=1\ntxindex=1" > ~/.bitcoin/bitcoin.conf
 
