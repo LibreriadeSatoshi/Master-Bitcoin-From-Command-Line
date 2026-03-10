@@ -1,0 +1,95 @@
+#!/bin/bash
+
+echo "pruebas ejercicio semana 1"
+#!/bin/bash
+
+VERSION="28.0"
+wget https://bitcoincore.org/bin/bitcoin-core-$VERSION/bitcoin-$VERSION-x86_64-linux-gnu.tar.gz
+wget https://bitcoincore.org/bin/bitcoin-core-$VERSION/SHA256SUMS
+wget https://bitcoincore.org/bin/bitcoin-core-$VERSION/SHA256SUMS.asc
+
+sha256sum --ignore-missing --check SHA256SUMS
+echo "Verificación exitosa de la firma binaria"
+
+mkdir -p ~/.bitcoin
+
+cat <<EOF > ~/.bitcoin/bitcoin.conf
+regtest=1
+fallbackfee=0.0001
+server=1
+txindex=1
+EOF
+
+echo "Directorio y archivo de configuración creados correctamente."
+
+bitcoin-cli loadwallet "Miner" > /dev/null 2>&1
+bitcoin-cli loadwallet "Trader" > /dev/null 2>&1
+
+# Si no existen, las crea (esto solo funcionará la primera vez o si borras los datos)
+bitcoin-cli createwallet "Miner" > /dev/null 2>&1
+bitcoin-cli createwallet "Trader" > /dev/null 2>&1
+
+echo "Billeteras Miner y Trader listas para usar."
+
+
+MINER_ADDR=$(bitcoin-cli -rpcwallet=Miner getnewaddress "Recompensa de Mineria")
+
+bitcoin-cli generatetoaddress 101 $MINER_ADDR
+echo "Se necesitaron 101 bloques para obtener saldo positivo."
+echo "Comentario: Las recompensas de bloque tienen una 'madurez' de 100 bloques por seguridad de la red."
+
+echo "Saldo de Miner:"
+bitcoin-cli -rpcwallet=Miner getbalance
+
+
+# 1. Crear dirección para el Trader
+TRADER_ADDR=$(bitcoin-cli -rpcwallet=Trader getnewaddress "Recibido")
+
+# 2. Enviar 20 BTC y capturar el TXID
+TXID=$(bitcoin-cli -rpcwallet=Miner sendtoaddress "$TRADER_ADDR" 20)
+echo "ID de la transacción (txid): $TXID"
+
+# 3. Ver la transacción en el mempool (antes de confirmar)
+echo "Detalles en el mempool:"
+bitcoin-cli getmempoolentry "$TXID"
+
+# 4. Confirmar la transacción minando 1 bloque más
+bitcoin-cli generatetoaddress 1 "$MINER_ADDR" > /dev/null
+
+# 1. Confirmar la transacción creando 1 bloque adicional
+echo "Confirmando transacción..."
+bitcoin-cli -rpcwallet=Miner generatetoaddress 1 "$MINER_ADDR" > /dev/null
+
+
+
+# 2. Obtener detalles finales usando jq (como pide el ejercicio)
+# Extraemos la información de la transacción recién confirmada
+TX_INFO=$(bitcoin-cli -rpcwallet=Miner gettransaction "$TXID")
+
+# 3. Imprimir el reporte que te pide la tarea
+
+echo "--- REPORTE FINAL ---"
+echo "txid: $TXID"
+echo "Comisiones: $(echo $TX_INFO | jq '.fee') BTC"
+echo "Bloque: $(bitcoin-cli getblockcount)"
+echo "Saldo de Miner: $(bitcoin-cli -rpcwallet=Miner getbalance) BTC"
+echo "Saldo de Trader: $(bitcoin-cli -rpcwallet=Trader getbalance) BTC"
+
+
+
+# Paso final: Confirmar y mostrar detalles
+bitcoin-cli -rpcwallet=Miner generatetoaddress 1 "$MINER_ADDR" > /dev/null
+
+# Extraer info para el reporte detallado
+TX_JSON=$(bitcoin-cli -rpcwallet=Miner gettransaction "$TXID")
+
+
+
+
+echo "--- REPORTE FINAL ---"
+echo "txid: $TXID"
+echo "Comisiones: $(echo $TX_JSON | jq '.fee') BTC"
+echo "Bloque: $(bitcoin-cli getblockcount)"
+echo "Saldo de Miner: $(bitcoin-cli -rpcwallet=Miner getbalance) BTC"
+echo "Saldo de Trader: $(bitcoin-cli -rpcwallet=Trader getbalance) BTC"
+
